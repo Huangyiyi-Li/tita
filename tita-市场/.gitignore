@@ -1,0 +1,25 @@
+# 配置文件（包含敏感信息）
+config.json
+
+# 数据库
+*.db
+
+# Python缓存
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# 日志和输出
+logs/
+日志/
+输出/
+daily_report_*.md
+
+# 归档
+归档/
+
+# 其他
+.DS_Store
+Thumbs.db
+*.log
