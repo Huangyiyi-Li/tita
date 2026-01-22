@@ -6,32 +6,32 @@ Tita 平台日志相关工具，包括自动爬取日志同步到飞书、自动
 
 ```
 tita/
-├── tita-市场/           # 日报分析系统 - AI智能分析销售日报
-└── (根目录)             # 自动周报生成器
+├── tita-市场/                  # 日报分析系统
+│   ├── tita_service.py         # 一体化服务（Web + 定时任务 + Cookie管理）
+│   └── ...
+│
+├── weekly_report_generator.py  # 周报生成器（轻量版，仅生成文件）
+├── playwright_weekly_report.py # 周报生成器（完整版，自动提交到Tita）
+└── run_*.bat                   # 启动脚本
 ```
 
-## 🚀 项目说明
+## 🚀 快速开始
 
-### [tita-市场](./tita-市场/)
-基于 AI 大模型的销售日报智能分析工具，功能包括：
-- 自动从 Tita 平台爬取日报
-- AI 分析提取结构化事件
-- 生成可视化仪表板
-- 同步到飞书多维表格
+### 周报生成器
 
-### 自动周报生成器 (根目录)
-自动抓取本周日报并使用 AI 生成周报，功能包括：
-- 自动获取本周一至周六的日报
-- 调用 AI 大模型汇总生成周报
-- Cookie 过期自动检测和引导更新
+1. 复制 `config.example.json` 为 `config.json`
+2. 填写你的 API 密钥和 Cookie
+3. 双击 `run_playwright.bat` 运行
+
+### tita-市场 日报分析
+
+1. 进入 `tita-市场/` 目录
+2. 复制 `config.example.json` 为 `config.json`
+3. 双击 `启动入口/start_service.bat`
 
 ## ⚙️ 配置说明
 
-每个项目都有 `config.example.json` 配置模板，使用前需要：
-1. 复制 `config.example.json` 为 `config.json`
-2. 填写你的 API 密钥和 Cookie
-
-> ⚠️ `config.json` 已被 .gitignore 排除，不会上传到 GitHub
+每个项目都有 `config.example.json` 配置模板，**config.json 已被 .gitignore 排除**，不会泄露敏感信息。
 
 ## 🔗 分支说明
 
@@ -39,3 +39,7 @@ tita/
 |------|------|
 | `master` | 共享Cookie版本（适合同时使用两个工具） |
 | `standalone` | 独立版本（适合分享给他人） |
+
+---
+
+*更新时间: 2026-01-22*
