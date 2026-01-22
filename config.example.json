@@ -1,0 +1,32 @@
+{
+    "tita_api_url": "https://work-weixin.tita.com/api/v1/569403/500866233/summary/search",
+    "ai_api_url": "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+    "ai_model_id": "填写你的模型ID",
+    "ai_api_key": "填写你的API密钥",
+    "output_dir": "周报",
+    "headers": {
+        "accept": "application/json, text/plain, */*",
+        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "content-type": "application/json",
+        "cookie": "填写你的Tita Cookie",
+        "Referer": "https://work-weixin.tita.com/500866233/weixin/pc/home",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    },
+    "payload_template": {
+        "pageNum": 1,
+        "pageSize": 20,
+        "relation": 1,
+        "summaryType": 8,
+        "startTime": "",
+        "endTime": "",
+        "searchDepartmentIds": [
+            ""
+        ],
+        "searchUserIds": [
+            ""
+        ],
+        "searchGroupIds": [
+            ""
+        ]
+    }
+}

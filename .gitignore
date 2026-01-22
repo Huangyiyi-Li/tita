@@ -1,0 +1,30 @@
+# 配置文件（包含敏感信息）
+config.json
+auth.json
+feishu_auth.json
+feishu_config.json
+playwright_config.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.so
+.eggs/
+*.egg-info/
+*.egg
+
+# 构建产物
+build/
+dist/
+*.spec
+
+# 生成的周报
+周报/
+
+# 其他
+.DS_Store
+Thumbs.db
+*.log
