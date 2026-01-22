@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>市场销售作战指挥大屏 V1.1</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts-wordcloud@2.1.0/dist/echarts-wordcloud.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+        
+        body {
+            background-color: #f1f5f9; /* Slate-100 */
+            color: #334155;
+            font-family: 'Noto Sans SC', system-ui, sans-serif;
+        }
+
+        [v-cloak] { display: none; }
+
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+
+        .card-hover {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        
+        /* 区域地图卡片样式 */
+        .region-card-risk {
+            background: linear-gradient(135deg, #fff 0%, #fff 80%, #fef2f2 100%);
+            border-left: 4px solid #ef4444;
+        }
+        .region-card-safe {
+            background: linear-gradient(135deg, #fff 0%, #fff 80%, #f0fdf4 100%);
+            border-left: 4px solid #10b981;
+        }
+
+        .animate-fade-in-up {
+            animation: fadeInUp 0.3s ease-out;
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+
+<body class="antialiased">
+    <div id="app" v-cloak class="min-h-screen flex flex-col">
+        
+        <header class="glass-effect sticky top-0 z-30 border-b border-slate-200 shadow-sm">
+            <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                <div class="flex items-center gap-3 cursor-pointer" @click="currentView = 'dashboard'">
+                    <div class="w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center text-white font-bold shadow-lg">
+                        <i class="ri-radar-fill"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold text-slate-800 leading-tight">市场指挥作战室 <span class="text-xs px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded ml-1">V1.1</span></h1>
+                        <p class="text-xs text-slate-500">数据日期: <span class="font-mono font-medium text-indigo-600">{{ yesterdayDate }}</span></p>
+                    </div>
+                </div>
+
+                <nav class="hidden md:flex space-x-1 bg-slate-100 p-1 rounded-lg">
+                    <button v-for="tab in tabs" :key="tab.id" 
+                        @click="changeView(tab.id)"
+                        :class="[
+                            currentView === tab.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900',
+                            'px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2'
+                        ]">
+                        <i :class="tab.icon"></i> {{ tab.name }}
+                        <span v-if="tab.id === 'region_map' && kpi.riskRegions > 0" class="flex h-2 w-2 relative">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                    </button>
+                </nav>
+
+                <div class="flex items-center gap-4">
+                    <div class="text-right hidden lg:block">
+                        <div class="text-xs text-slate-400">当前登录</div>
+                        <div class="text-sm font-bold text-slate-700">市场总监</div>
+                    </div>
+                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" class="w-9 h-9 rounded-full bg-slate-200 border border-slate-300">
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1 w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            
+            <div v-show="currentView === 'dashboard'" class="space-y-6 animate-fade-in-up">
+                
+                <div class="bg-gradient-to-r from-indigo-900 to-slate-800 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
+                    <div class="absolute right-0 top-0 opacity-10 text-9xl transform translate-x-10 -translate-y-10">
+                        <i class="ri-brain-line"></i>
+                    </div>
+                    <div class="relative z-10">
+                        <h2 class="text-lg font-bold mb-3 flex items-center gap-2">
+                            <i class="ri-sparkling-2-fill text-yellow-400"></i> AI 参谋日报综述
+                        </h2>
+                        <p class="text-indigo-50 text-base leading-relaxed tracking-wide opacity-90 max-w-4xl">
+                            {{ summarySentence }}
+                        </p>
+                        <div class="mt-4 flex gap-3">
+                            <button @click="currentView = 'region_map'" class="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded border border-white/20 text-xs font-medium transition flex items-center gap-2">
+                                <i class="ri-map-pin-range-line text-emerald-300"></i> 
+                                重点关注区域：<span class="font-bold underline">{{ topRiskRegion }}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm card-hover cursor-pointer" @click="currentView = 'region_map'">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs font-medium text-slate-500 uppercase">覆盖战区/县区</p>
+                                <h3 class="mt-1 text-2xl font-bold text-slate-800">{{ uniqueRegions.length }}</h3>
+                            </div>
+                            <div class="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                                <i class="ri-map-2-line"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2 text-xs text-slate-400">点击查看作战地图</div>
+                    </div>
+                    
+                    <div class="bg-white p-5 rounded-xl border-l-4 border-red-500 shadow-sm card-hover cursor-pointer" @click="jumpToIntelligence('risk')">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs font-medium text-slate-500 uppercase">高危风险 & 投诉</p>
+                                <h3 class="mt-1 text-2xl font-bold text-red-600">{{ kpi.riskCount }}</h3>
+                            </div>
+                            <div class="p-2 bg-red-50 text-red-600 rounded-lg">
+                                <i class="ri-alarm-warning-fill"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2 text-xs text-slate-400 flex items-center gap-1">
+                            <span v-if="kpi.riskTrend === 'up'" class="text-red-500"><i class="ri-arrow-up-line"></i> 较昨日增加</span>
+                            <span v-else class="text-emerald-500"><i class="ri-arrow-down-line"></i> 较昨日下降</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm card-hover cursor-pointer" @click="jumpToIntelligence('market')">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs font-medium text-slate-500 uppercase">竞品/替代风险</p>
+                                <h3 class="mt-1 text-2xl font-bold text-slate-800">{{ kpi.competitorCount }}</h3>
+                            </div>
+                            <div class="p-2 bg-orange-50 text-orange-600 rounded-lg">
+                                <i class="ri-sword-line"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm card-hover">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs font-medium text-slate-500 uppercase">全员日志提交</p>
+                                <h3 class="mt-1 text-2xl font-bold text-slate-800">{{ logs.length }}</h3>
+                            </div>
+                            <div class="p-2 bg-slate-100 text-slate-600 rounded-lg">
+                                <i class="ri-file-list-3-line"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm col-span-2">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-bold text-slate-700 flex items-center gap-2">
+                                <i class="ri-line-chart-line text-blue-500"></i> 七日情报趋势 (模拟)
+                            </h3>
+                            <div class="flex gap-2">
+                                <span class="text-xs px-2 py-1 bg-red-50 text-red-600 rounded border border-red-100">● 风险</span>
+                                <span class="text-xs px-2 py-1 bg-emerald-50 text-emerald-600 rounded border border-emerald-100">● 商机</span>
+                            </div>
+                        </div>
+                        <div id="chart-trend" class="w-full h-[300px]"></div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <h3 class="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                            <i class="ri-fire-line text-orange-500"></i> 市场热词
+                        </h3>
+                        <div id="chart-wordcloud" class="w-full h-[300px]"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-show="currentView === 'region_map'" class="space-y-6 animate-fade-in-up">
+                <div class="flex justify-between items-end">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-800">区域作战地图</h2>
+                        <p class="text-sm text-slate-500 mt-1">按业务区县聚合情报，快速识别局部风险</p>
+                    </div>
+                    <div class="flex gap-2 text-sm text-slate-500">
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 bg-red-500 rounded-sm"></span> 风险高危</span>
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 bg-emerald-500 rounded-sm"></span> 推进顺利</span>
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 bg-slate-300 rounded-sm"></span> 无数据/平静</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    <div v-for="region in regionsStats" :key="region.name" 
+                        @click="openRegionDetail(region.name)"
+                        :class="[
+                            'p-5 rounded-xl border shadow-sm cursor-pointer transition-all relative overflow-hidden group',
+                            region.riskCount > 0 ? 'region-card-risk border-red-200' : 'region-card-safe border-slate-200'
+                        ]">
+                        <div class="flex justify-between items-center mb-3 relative z-10">
+                            <h3 class="text-lg font-bold text-slate-800">{{ region.name }}</h3>
+                            <span class="text-xs font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{{ region.logs.length }} 条日志</span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2 mb-3 relative z-10">
+                            <div class="bg-white/60 rounded p-2 border border-slate-100">
+                                <div class="text-[10px] text-slate-500 uppercase">风险/阻碍</div>
+                                <div :class="['text-xl font-bold', region.riskCount > 0 ? 'text-red-600' : 'text-slate-300']">
+                                    {{ region.riskCount }}
+                                </div>
+                            </div>
+                            <div class="bg-white/60 rounded p-2 border border-slate-100">
+                                <div class="text-[10px] text-slate-500 uppercase">商机/需求</div>
+                                <div :class="['text-xl font-bold', region.oppCount > 0 ? 'text-emerald-600' : 'text-slate-300']">
+                                    {{ region.oppCount }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="relative z-10">
+                            <div v-if="region.riskCount > 0" class="text-xs text-red-700 bg-red-50/80 p-2 rounded line-clamp-2">
+                                <i class="ri-alert-line mr-1"></i> {{ region.topRisk }}
+                            </div>
+                            <div v-else class="text-xs text-slate-400 p-2">
+                                <i class="ri-checkbox-circle-line mr-1"></i> 暂无明显风险，业务正常推进中
+                            </div>
+                        </div>
+                        
+                        <i class="ri-map-pin-line absolute -bottom-2 -right-2 text-6xl opacity-5 transform group-hover:scale-110 transition-transform"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div v-show="currentView === 'intelligence'" class="space-y-6">
+                 <div class="flex flex-wrap gap-2">
+                    <button v-for="category in intelCategories" :key="category.id"
+                        @click="intelTab = category.id"
+                        :class="[
+                            intelTab === category.id ? `bg-${category.color}-600 text-white shadow-md ring-2 ring-${category.color}-200` : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50',
+                            'px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2'
+                        ]">
+                        <i :class="category.icon"></i> 
+                        {{ category.name }}
+                        <span class="bg-white/20 px-1.5 rounded text-xs ml-1">{{ intelCounts[category.id] || 0 }}</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    <div v-for="(item, index) in filteredIntelItems" :key="index"
+                        class="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group">
+                        <div class="p-5 pb-2">
+                            <div class="flex justify-between items-start mb-3">
+                                <div class="flex items-center gap-2">
+                                    <span :class="['text-xs font-bold px-2 py-1 rounded border', getCategoryStyle(intelTab).tag]">
+                                        {{ formatKey(item.dimension) }}
+                                    </span>
+                                    <span class="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded">
+                                        {{ item.log.region || '其他' }}
+                                    </span>
+                                </div>
+                                <span class="text-xs font-mono text-slate-400">{{ item.date.substring(5) }}</span>
+                            </div>
+                            <p class="text-sm text-slate-700 leading-relaxed font-medium line-clamp-4 group-hover:line-clamp-none transition-all">
+                                {{ item.content }}
+                            </p>
+                        </div>
+                        <div class="px-5 py-3 bg-slate-50 border-t border-slate-100 flex justify-between items-center mt-2 rounded-b-xl">
+                            <div class="flex items-center gap-2">
+                                <div class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 text-xs flex items-center justify-center font-bold">
+                                    {{ item.userName[0] }}
+                                </div>
+                                <div class="text-xs text-slate-500">{{ item.userName }}</div>
+                            </div>
+                            <button @click="openDetail(item.log)" class="text-xs text-indigo-600 hover:underline">详情</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-show="currentView === 'explorer'" class="space-y-4 h-full flex flex-col">
+                 <div class="flex flex-col sm:flex-row gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="relative flex-1">
+                        <i class="ri-search-line absolute left-3 top-3 text-slate-400"></i>
+                        <input v-model="filters.search" type="text" placeholder="搜索学校、区域、关键词..." 
+                            class="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-sm">
+                    </div>
+                    <select v-model="filters.region" class="px-4 py-2 rounded-lg border border-slate-300 bg-white text-sm outline-none">
+                        <option value="">全部区域</option>
+                        <option v-for="r in uniqueRegions" :key="r" :value="r">{{ r }}</option>
+                    </select>
+                </div>
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <table class="min-w-full divide-y divide-slate-100">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">提交人/区域</th>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">标签</th>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">内容摘要</th>
+                                <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr v-for="log in filteredLogs" :key="log.feed_id" class="hover:bg-slate-50">
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="text-sm font-bold text-slate-800">{{ log.user_name }}</div>
+                                        <div class="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">{{ log.region }}</div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex flex-wrap gap-1 max-w-[200px]">
+                                        <span v-if="hasTag(log, '投诉')" class="px-1.5 py-0.5 rounded text-[10px] bg-red-50 text-red-600 border border-red-100">投诉</span>
+                                        <span v-if="hasTag(log, '阻碍')" class="px-1.5 py-0.5 rounded text-[10px] bg-orange-50 text-orange-600 border border-orange-100">阻碍</span>
+                                        <span v-if="hasTag(log, '机会')" class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-100">商机</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-slate-600 truncate max-w-xs">{{ getDigest(log) }}</td>
+                                <td class="px-6 py-4 text-right">
+                                    <button @click="openDetail(log)" class="text-indigo-600 hover:underline text-sm">详情</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+
+        <div v-if="selectedLog" class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" style="background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px);">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-fade-in-up">
+                <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800">{{ selectedLog.user_name }} 的日报详情</h2>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">{{ selectedLog.region }}</span>
+                            <span class="text-xs text-slate-400">{{ selectedLog.log_date }}</span>
+                        </div>
+                    </div>
+                    <button @click="selectedLog = null" class="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 flex items-center justify-center"><i class="ri-close-line"></i></button>
+                </div>
+                <div class="flex-1 overflow-hidden flex flex-col lg:flex-row">
+                    <div class="w-full lg:w-5/12 bg-slate-50/50 p-6 overflow-y-auto border-r border-slate-100">
+                        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">AI 智能分析</h3>
+                        <div class="space-y-4">
+                            <div v-for="(val, key) in cleanAnalysis(selectedLog.analysis_json)" :key="key" 
+                                class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-indigo-300 transition-colors">
+                                <div class="absolute left-0 top-0 bottom-0 w-1" :class="getDimensionColor(key)"></div>
+                                <h4 class="text-xs font-bold mb-1" :class="getDimensionTextColor(key)">{{ formatKey(key) }}</h4>
+                                <p class="text-sm text-slate-700 leading-relaxed">{{ val }}</p>
+                                <div v-if="categoryDims.risk.includes(key)" class="mt-2 pt-2 border-t border-slate-100 hidden group-hover:flex gap-2">
+                                    <button class="text-[10px] bg-red-50 text-red-600 px-2 py-1 rounded hover:bg-red-100">生成工单</button>
+                                    <button class="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 rounded hover:bg-slate-200">转发产品部</button>
+                                </div>
+                            </div>
+                            <div v-if="Object.keys(cleanAnalysis(selectedLog.analysis_json)).length === 0" class="text-center py-10 text-slate-400 text-xs">AI 未提取到结构化风险或商机</div>
+                        </div>
+                    </div>
+                    <div class="w-full lg:w-7/12 p-6 overflow-y-auto bg-white">
+                        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">日志原文</h3>
+                        <div class="prose prose-sm prose-slate max-w-none text-slate-600 whitespace-pre-wrap">{{ selectedLog.content }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // 模拟更丰富的历史数据以生成趋势图
+        const MOCK_TREND = {
+            dates: ['01-01', '01-02', '01-03', '01-04', '01-05', '01-06', '01-07'],
+            risks: [2, 5, 3, 6, 8, 12, 9], // 模拟风险上升
+            opps: [5, 4, 6, 5, 7, 8, 10]
+        };
+
+        const FULL_DATA = { "logs": [{ "feed_id": "569403_501385289_8_5_639032858027438300", "user_id": "501385289", "user_name": "丁孝文", "department": "316", "log_date": "2026-01-06", "content": "**今日 OKR 进展**:\n- 全力打赢寒假资源类业务攻坚战，确保目标所负责县区净增3000达成\n- 联合所负责县区移动完成寒假培训与动员，覆盖所有目标区域\n- 推行清单制客户走访，优化订购流程，优先扫码开通，提升开通率\n- 完成个人年度总结，做好2026年度规划\n- 参加内训，提升个人能力\n\n****:\n走访西华1.走访西华县南门小学，学校门口闸机松动，人脸识别器识别范围不精准，进行维修与设置2.走访西华移动，拜访校园主管以及西夏一中客户经理，带去寒假作业期刊，另外提出能否走访学校，表示太薄了而且没有参考性，他们看看还行，让校领导看不行，等完整的出来再说，另外询问单子什么时候能到县区，赶在学生放假前两周进行发放3.跟客户经理走访西华县二中，询问寒假作业事宜，主任表示学校目前无统一购买打算，推荐我们的资料，但是主任表示要看看整体的样品，下周等书到了再拿来拜访4.西华西夏一中学生资料添加5.实验幼儿园补卡处理6.其它琐碎资料处理\n\n****:\n扶沟\n\n****:\n{\"Users\":[],\"Departments\":[],\"Groups\":[],\"VisibilityModel\":{\"Visibility\":0,\"AreaUsers\":null,\"AreaDepartments\":null,\"AreaGroups\":null},\"SubmitDate\":null}", "analysis_json": "{\"学校画像信息（规模/关键人/信息化水平/预算）\": \"\", \"合作伙伴协同状态（移动公司）\": \"联合所负责县区移动完成寒假培训与动员，覆盖所有目标区域；走访西华移动，拜访校园主管以及西夏一中客户经理，带去寒假作业期刊，提出能否走访学校，对方表示资料太薄且没有参考性，校领导看不行，等完整的出来再说；询问单子什么时候能到县区，赶在学生放假前两周进行发放\", \"竞争动态与替代风险\": \"\", \"销售流程阻碍点\": \"西华县南门小学门口闸机松动，人脸识别器识别范围不精准；西华移动对寒假作业期刊资料表示太薄且没有参考性，校领导看不行，需等完整样品；西华县二中主任表示学校目前无统一购买打算，需看整体样品，下周书到了再拜访\", \"客户关系深度（决策链）\": \"走访西华移动，拜访校园主管以及西夏一中客户经理；跟客户经理走访西华县二中，询问寒假作业事宜，与主任沟通\", \"场景化需求与痛点\": \"学校门口闸机松动，人脸识别器识别范围不精准；寒假作业期刊资料太薄且没有参考性，校领导看不行；学校目前无统一购买打算，需看整体样品\", \"新业务与新模式反馈\": \"\", \"系统性与运营类问题\": \"西华县南门小学门口闸机松动，人脸识别器识别范围不精准；实验幼儿园补卡处理；其它琐碎资料处理\", \"用户投诉\": \"\", \"业务发展进展\": \"全力打赢寒假资源类业务攻坚站，确保目标所负责县区净增3000达成；联合所负责县区移动完成寒假培训与动员，覆盖所有目标区域；推行清单制客户走访，优化订购流程，优先扫码开通，提升开通率；完成个人年度总结，做好2026年度规划；参加内训，提升个人能力；西华西夏一中学生资料添加\"}", "crawled_at": "2026-01-07 03:45:46" }, { "feed_id": "569403_501379790_8_5_639033364437702432", "user_id": "501379790", "user_name": "任子晗", "department": "316", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"学校画像信息（规模/关键人/信息化水平/预算）\": \"东升三中：七年级翟老师、九年级王老师；洛阳外国语东校区：数学组大组长张军勇\", \"销售流程阻碍点\": \"东升三中：客户想先看完整版内容，目前正在排版打印，需下周提供；洛阳外国语东校区：张老师对众享感触不深，需下周提供完整版本作业以展示核心功能\", \"客户关系深度（决策链）\": \"东升三中：联系较熟的数学老师，深耕班级订单；洛阳外国语东校区：接触数学组大组长张军勇，作为关键决策人\", \"场景化需求与痛点\": \"东升三中：需要寒假作业完整版内容；洛阳外国语东校区：关注寒假作业的智能批改、视频课程、复习预习内容、错题本及寒假作业布置计划办学活动\", \"业务发展进展\": \"洛阳寒假资源类发展：2500订单；各县区培训：组织客户经理走访目标学校清单；整理资源类发展优秀案例、发展方案和具体口径\"}", "crawled_at": "2026-01-07 03:43:29" }, { "feed_id": "569403_501414475_8_5_639033327514411875", "user_id": "501414475", "user_name": "冯颖", "department": "316", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"学校画像信息（规模/关键人/信息化水平/预算）\": \"洛阳外国语学校的关键人为冯丽芳老师，校长为决策人...\", \"合作伙伴协同状态（移动公司）\": \"已前往涧西移动拜访客户经理赵晓丽...\", \"销售流程阻碍点\": \"学校决策流程需校长最终决定...\", \"新业务与新模式反馈\": \"推广AI批改功能...\"}", "crawled_at": "2026-01-07 03:43:47" }, { "feed_id": "569403_501339486_8_5_639033724437177416", "user_id": "501339486", "user_name": "刘领双", "department": "316", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"场景化需求与痛点\": \"牟山小学设备离线问题...\", \"新业务与新模式反馈\": \"新增目标1200户...\"}", "crawled_at": "2026-01-07 03:40:36" }, { "feed_id": "569403_500913707_8_5_639033305706596626", "user_id": "500913707", "user_name": "孙建伟", "department": "316", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"销售流程阻碍点\": \"上蔡思源实验学校关于阅读活动需要跟一把手汇报...\", \"场景化需求与痛点\": \"处理遂平二中张老师积分问题\"}", "crawled_at": "2026-01-07 03:44:02" }, { "feed_id": "569403_501299804_8_5_639033277755715484", "user_id": "501299804", "user_name": "尹海洋", "department": "316", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"合作伙伴协同状态（移动公司）\": \"移动公司考核导向变化，资源类业务不再纳入考核项...\", \"销售流程阻碍点\": \"资源类业务被移出移动考核项...\", \"新业务与新模式反馈\": \"作业帮学习机政策...\"}", "crawled_at": "2026-01-07 03:44:54" }, { "feed_id": "569403_500866251_8_5_639033193376404749", "user_id": "500866251", "user_name": "张建", "department": "316", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"竞争动态与替代风险\": \"参与的还有同步课堂及作业帮\", \"用户投诉\": \"客户经理反馈比较多的问题还是前期毕业生希望尽快删除...\"}", "crawled_at": "2026-01-07 03:45:31" }, { "feed_id": "569403_500913993_8_5_639033693215893717", "user_id": "500913993", "user_name": "张沛", "department": "319", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"用户投诉\": \"关于2025年由于中高端问题导致2个月未充值的...\", \"系统性与运营类问题\": \"祥符区第二实验中学：黑名单问题...\"}", "crawled_at": "2026-01-07 03:42:56" }, { "feed_id": "569403_501332647_8_5_639033729096277417", "user_id": "501332647", "user_name": "李东辉", "department": "316", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"竞争动态与替代风险\": \"南阳市第三中学：智学网刚进行了宣传...\", \"用户投诉\": \"叶县昆北中学：教师对青禾计划兑换问题不满意...\"}", "crawled_at": "2026-01-07 03:39:51" }, { "feed_id": "569403_500872991_8_5_639033240613560038", "user_id": "500872991", "user_name": "李想", "department": "316", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"用户投诉\": \"处理市区一个投诉；6.3班家长举报二维码问题到教体局。\", \"场景化需求与痛点\": \"放学系统问题：班级过早刷卡造成家长误判...\"}", "crawled_at": "2026-01-07 03:45:10" }, { "feed_id": "569403_500866226_8_5_639033703650582017", "user_id": "500866226", "user_name": "杜小红", "department": "316", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"场景化需求与痛点\": \"许昌十二中学智慧体育一体机...\", \"新业务与新模式反馈\": \"尝试推动AI自习室落地...\"}", "crawled_at": "2026-01-07 03:42:19" }, { "feed_id": "569403_500866253_8_5_639033727195665077", "user_id": "500866253", "user_name": "杨小娟", "department": "319", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"竞争动态与替代风险\": \"学校目前的消费系统使用的是微信的\", \"销售流程阻碍点\": \"港区一中政教主任对转发的放学系统很感兴趣，咨询价格，表示有点贵...\"}", "crawled_at": "2026-01-07 03:40:07" }, { "feed_id": "569403_500866211_8_5_639033716693494083", "user_id": "500866211", "user_name": "杨爱娟", "department": "319", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"销售流程阻碍点\": \"郑东实验学校因双减和教辅限令...\", \"用户投诉\": \"郑州八中新校区话机欠费停机...\"}", "crawled_at": "2026-01-07 03:40:54" }, { "feed_id": "569403_500866208_8_5_639033688660378571", "user_id": "500866208", "user_name": "王乔芳", "department": "319", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"竞争动态与替代风险\": \"千单校中突然不用的老师可能因学校有竞品...\", \"销售流程阻碍点\": \"祥符区第二实验中学项目费用黑名单...\", \"用户投诉\": \"家长收不到短信问题...\"}", "crawled_at": "2026-01-07 03:43:15" }, { "feed_id": "569403_501321543_8_5_639033701826371057", "user_id": "501321543", "user_name": "王海超", "department": "316", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"销售流程阻碍点\": \"学校对通过微信群内发关于资料的事比较排斥...\", \"用户投诉\": \"家长可能截屏发到网上或进行投诉\"}", "crawled_at": "2026-01-07 03:42:32" }, { "feed_id": "569403_500866291_8_5_639033716989046146", "user_id": "500866291", "user_name": "胡倩", "department": "316", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"学校画像信息（规模/关键人/信息化水平/预算）\": \"分析失败\"}", "crawled_at": "2026-01-07 03:39:20" }, { "feed_id": "569403_500913706_8_5_639033704953056702", "user_id": "500913706", "user_name": "苗赛赛", "department": "319", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"竞争动态与替代风险\": \"新密京密学校已有卡类...\", \"销售流程阻碍点\": \"新密二初中书记不同意把书送到学校...\"}", "crawled_at": "2026-01-07 03:42:06" }, { "feed_id": "569403_500866254_8_5_639033277755715484", "user_id": "500866254", "user_name": "赵万里", "department": "316", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"新业务与新模式反馈\": \"寒假定制化发展推出新变化：1、常态化积分奖励；2、订数学、送物理...\"}", "crawled_at": "2026-01-07 03:44:38" }, { "feed_id": "569403_500866240_8_5_639033710067731223", "user_id": "500866240", "user_name": "赵娜", "department": "319", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"销售流程阻碍点\": \"五十八中微信话机...荥阳二中寒假作业：吴校认为50多页内容偏多...\", \"用户投诉\": \"五十八中：学生不会用微信话机急得摔话筒。\"}", "crawled_at": "2026-01-07 03:41:52" }, { "feed_id": "569403_501299805_8_5_639033696448460814", "user_id": "501299805", "user_name": "赵慧林", "department": "316", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"新业务与新模式反馈\": \"校内AI自习室试用跟进。\", \"系统性与运营类问题\": \"团结街小学考勤卡处理...\"}", "crawled_at": "2026-01-07 03:42:41" }, { "feed_id": "569403_501410010_8_5_639033728493184391", "user_id": "501410010", "user_name": "郭家妤", "department": "316", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"学校画像信息（规模/关键人/信息化水平/预算）\": \"原阳县第二初级中学主校吴校长...\", \"销售流程阻碍点\": \"原阳县第五初级中学黄主任因忙检查...\"}", "crawled_at": "2026-01-07 03:39:39" }, { "feed_id": "569403_501410949_8_5_639033712843641744", "user_id": "501410949", "user_name": "金可远", "department": "316", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"销售流程阻碍点\": \"教师因积分只返还给管理员而意见较大...\", \"用户投诉\": \"客户经理担心在线课程毕业生删除可能引起投诉...\"}", "crawled_at": "2026-01-07 03:41:15" }, { "feed_id": "569403_501293726_8_5_639033713497272511", "user_id": "501293726", "user_name": "雷旭瑞", "department": "316", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"场景化需求与痛点\": \"场景化需求：寒假资源类发展...\", \"新业务与新模式反馈\": \"新业务：数智家校签约储备...\"}", "crawled_at": "2026-01-07 03:41:31" }, { "feed_id": "569403_500866200_8_5_639033204454964367", "user_id": "500866200", "user_name": "靳鹏", "department": "316", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"竞争动态与替代风险\": \"省公司导向可能转向卡类和学习机...\", \"销售流程阻碍点\": \"高考王者奖励兑现进度慢...\"}", "crawled_at": "2026-01-07 03:44:22" }, { "feed_id": "569403_501410950_8_5_639033725580637217", "user_id": "501410950", "user_name": "马典", "department": "316", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"竞争动态与替代风险\": \"学校大多都是老师自己找的定的资料...\", \"销售流程阻碍点\": \"客户经理们都觉得很困难...\"}", "crawled_at": "2026-01-07 03:40:20" }, { "feed_id": "569403_500866210_8_5_639033326889653871", "user_id": "500866210", "user_name": "高志强", "department": "316", "log_date": "2026-01-06", "content": "...", "analysis_json": "{\"学校画像信息（规模/关键人/信息化水平/预算）\": \"分析失败\"}", "crawled_at": "2026-01-07 03:43:33" }], "generated_at": "2026-01-07 14:06:02", "yesterday_date": "2026-01-06" };
+    </script>
+    
+    <script>
+        const { createApp, ref, computed, onMounted, nextTick, watch } = Vue;
+
+        createApp({
+            setup() {
+                // 初始化数据
+                const logs = ref(FULL_DATA.logs);
+                const generatedAt = FULL_DATA.generated_at;
+                const yesterdayDate = FULL_DATA.yesterday_date;
+                const currentView = ref('dashboard'); // region_map, intelligence, explorer
+                const intelTab = ref('risk');
+                const selectedLog = ref(null);
+                const filters = ref({ region: '', search: '' });
+
+                // 核心更新：区域关键词映射（模拟 AI 识别）
+                const REGION_KEYWORDS = {
+                    '西华': ['西华', '西夏'],
+                    '扶沟': ['扶沟'],
+                    '新密': ['新密', '京密'],
+                    '港区': ['港区', '郑东'],
+                    '祥符': ['祥符', '祥符区'],
+                    '洛阳': ['洛阳', '涧西', '东升'],
+                    '原阳': ['原阳'],
+                    '荥阳': ['荥阳'],
+                    '叶县': ['叶县'],
+                    '上蔡': ['上蔡'],
+                    '遂平': ['遂平'],
+                    '许昌': ['许昌'],
+                    '郑州': ['郑州', '五十八中', '八中']
+                };
+
+                // 给数据打标签（自动识别区域）
+                const processLogs = (rawData) => {
+                    return rawData.map(log => {
+                        let region = '其他区域';
+                        const text = (log.content + log.analysis_json).toLowerCase();
+                        
+                        for (const [r, kws] of Object.entries(REGION_KEYWORDS)) {
+                            if (kws.some(kw => text.includes(kw))) {
+                                region = r + (r.endsWith('区') || r.endsWith('县') ? '' : '区'); // 简单后缀处理
+                                break;
+                            }
+                        }
+                        return { ...log, region };
+                    });
+                };
+
+                logs.value = processLogs(logs.value);
+
+                // 常量与配置
+                const KEY_MAP = {
+                    '学校画像信息（规模/关键人/信息化水平/预算）': '🏫 学校画像',
+                    '合作伙伴协同状态（移动公司）': '🤝 移动协同',
+                    '竞争动态与替代风险': '⚔️ 竞品风险',
+                    '销售流程阻碍点': '⛔ 销售阻碍',
+                    '客户关系深度（决策链）': '🔗 决策链',
+                    '场景化需求与痛点': '💡 场景痛点',
+                    '新业务与新模式反馈': '🚀 新机会',
+                    '系统性与运营类问题': '🔧 运营问题',
+                    '用户投诉': '🔥 用户投诉',
+                    '业务发展进展': '📈 业务进展'
+                };
+
+                const tabs = [
+                    { id: 'dashboard', name: '总览看板', icon: 'ri-dashboard-line' },
+                    { id: 'region_map', name: '区域作战地图', icon: 'ri-map-2-line' }, // New
+                    { id: 'intelligence', name: '情报透视', icon: 'ri-eye-line' },
+                    { id: 'explorer', name: '数据检索', icon: 'ri-table-line' }
+                ];
+
+                const intelCategories = [
+                    { id: 'risk', name: '风险与投诉', icon: 'ri-alarm-warning-line', color: 'red' },
+                    { id: 'opp', name: '机会与需求', icon: 'ri-lightbulb-flash-line', color: 'emerald' },
+                    { id: 'market', name: '竞争与画像', icon: 'ri-map-pin-user-line', color: 'blue' }
+                ];
+                
+                const categoryDims = {
+                    risk: ['用户投诉', '销售流程阻碍点', '系统性与运营类问题', '竞争动态与替代风险'],
+                    opp: ['场景化需求与痛点', '新业务与新模式反馈'],
+                    market: ['学校画像信息（规模/关键人/信息化水平/预算）', '客户关系深度（决策链）', '合作伙伴协同状态（移动公司）']
+                };
+
+                // 工具函数
+                const parseAnalysis = (jsonStr) => { try { return JSON.parse(jsonStr); } catch { return {}; } };
+                const formatKey = (key) => KEY_MAP[key] || key;
+                const cleanAnalysis = (jsonStr) => {
+                    const raw = parseAnalysis(jsonStr);
+                    const cleaned = {};
+                    for (const [k, v] of Object.entries(raw)) {
+                        if (v && v.length > 3 && !v.includes('分析失败') && v !== '无') cleaned[k] = v;
+                    }
+                    return cleaned;
+                };
+
+                const hasTag = (log, type) => {
+                    const a = cleanAnalysis(log.analysis_json);
+                    if (type === '投诉') return !!a['用户投诉'];
+                    if (type === '阻碍') return !!a['销售流程阻碍点'];
+                    if (type === '机会') return !!a['新业务与新模式反馈'] || !!a['场景化需求与痛点'];
+                    return false;
+                };
+
+                // 计算属性
+                const uniqueRegions = computed(() => [...new Set(logs.value.map(l => l.region))].sort());
+
+                // 核心逻辑：区域统计
+                const regionsStats = computed(() => {
+                    const stats = uniqueRegions.value.map(r => {
+                        const regionLogs = logs.value.filter(l => l.region === r);
+                        let riskCount = 0;
+                        let oppCount = 0;
+                        let topRisk = '';
+
+                        regionLogs.forEach(l => {
+                            if (hasTag(l, '投诉') || hasTag(l, '阻碍')) {
+                                riskCount++;
+                                if (!topRisk) {
+                                    const a = cleanAnalysis(l.analysis_json);
+                                    topRisk = a['用户投诉'] || a['销售流程阻碍点'] || '多项隐患';
+                                }
+                            }
+                            if (hasTag(l, '机会')) oppCount++;
+                        });
+
+                        return { name: r, logs: regionLogs, riskCount, oppCount, topRisk };
+                    });
+                    // 按风险程度排序
+                    return stats.sort((a, b) => b.riskCount - a.riskCount);
+                });
+
+                const topRiskRegion = computed(() => regionsStats.value[0]?.name || '无');
+
+                const filteredLogs = computed(() => {
+                    return logs.value.filter(log => {
+                        if (filters.value.region && log.region !== filters.value.region) return false;
+                        if (filters.value.search) {
+                            const q = filters.value.search.toLowerCase();
+                            return (log.content + log.user_name + log.region).toLowerCase().includes(q);
+                        }
+                        return true;
+                    });
+                });
+
+                const filteredIntelItems = computed(() => {
+                    const items = [];
+                    const activeDims = categoryDims[intelTab.value];
+                    filteredLogs.value.forEach(log => {
+                        const analysis = cleanAnalysis(log.analysis_json);
+                        for (const [key, val] of Object.entries(analysis)) {
+                            if (activeDims.includes(key)) {
+                                items.push({ dimension: key, content: val, userName: log.user_name, date: log.log_date, log });
+                            }
+                        }
+                    });
+                    return items;
+                });
+
+                const intelCounts = computed(() => {
+                    const counts = { risk: 0, opp: 0, market: 0 };
+                    filteredLogs.value.forEach(log => {
+                        const analysis = cleanAnalysis(log.analysis_json);
+                        for (const key of Object.keys(analysis)) {
+                            if (categoryDims.risk.includes(key)) counts.risk++;
+                            if (categoryDims.opp.includes(key)) counts.opp++;
+                            if (categoryDims.market.includes(key)) counts.market++;
+                        }
+                    });
+                    return counts;
+                });
+
+                const kpi = computed(() => {
+                    let riskCount = 0, competitorCount = 0;
+                    logs.value.forEach(log => {
+                        const a = cleanAnalysis(log.analysis_json);
+                        if (a['用户投诉'] || a['销售流程阻碍点'] || a['系统性与运营类问题']) riskCount++;
+                        if (a['竞争动态与替代风险']) competitorCount++;
+                    });
+                    return { 
+                        riskCount, 
+                        competitorCount, 
+                        riskTrend: riskCount > 5 ? 'up' : 'down', // Mock trend logic
+                        riskRegions: regionsStats.value.filter(r => r.riskCount > 0).length
+                    };
+                });
+
+                const summarySentence = computed(() => {
+                    const highRiskRegion = regionsStats.value[0];
+                    if (highRiskRegion && highRiskRegion.riskCount > 0) {
+                        return `🚨 红色警报：${highRiskRegion.name}今日爆发 ${highRiskRegion.riskCount} 起风险，涉及投诉与竞品阻碍，建议优先点击查看。全区共发现 ${kpi.value.riskCount} 项风险。`;
+                    }
+                    return `👋 今日战况平稳，共覆盖 ${uniqueRegions.value.length} 个区域。AI 建议关注 ${regionsStats.value.find(r => r.oppCount > 0)?.name || '市场'} 的新业务机会。`;
+                });
+
+                // UI Helpers
+                const getDigest = (log) => {
+                    const a = cleanAnalysis(log.analysis_json);
+                    return Object.values(a)[0] || log.content.substring(0, 50) + '...';
+                };
+                const getCategoryStyle = (tab) => {
+                    if (tab === 'risk') return { tag: 'text-red-600 bg-red-50 border-red-100' };
+                    if (tab === 'opp') return { tag: 'text-emerald-600 bg-emerald-50 border-emerald-100' };
+                    return { tag: 'text-blue-600 bg-blue-50 border-blue-100' };
+                };
+                const getDimensionColor = (key) => {
+                    if (categoryDims.risk.includes(key)) return 'bg-red-500';
+                    if (categoryDims.opp.includes(key)) return 'bg-emerald-500';
+                    return 'bg-blue-500';
+                };
+                const getDimensionTextColor = (key) => {
+                    if (categoryDims.risk.includes(key)) return 'text-red-700';
+                    if (categoryDims.opp.includes(key)) return 'text-emerald-700';
+                    return 'text-blue-700';
+                };
+
+                // Actions
+                const openDetail = (log) => { selectedLog.value = log; };
+                const jumpToIntelligence = (tab) => { intelTab.value = tab; currentView.value = 'intelligence'; };
+                const openRegionDetail = (regionName) => {
+                    filters.value.region = regionName;
+                    filters.value.search = '';
+                    currentView.value = 'explorer';
+                };
+                const changeView = (view) => {
+                    if (view === 'dashboard') {
+                        filters.value.region = ''; // Reset when going back to dashboard
+                    }
+                    currentView.value = view;
+                }
+
+                // Charting
+                const initCharts = () => {
+                    nextTick(() => {
+                        // WordCloud
+                        const chartCloud = document.getElementById('chart-wordcloud');
+                        if (chartCloud) {
+                            const myChart = echarts.init(chartCloud);
+                            myChart.setOption({
+                                series: [{
+                                    type: 'wordCloud', shape: 'circle', sizeRange: [12, 40], rotationRange: [0, 0],
+                                    textStyle: { fontFamily: 'sans-serif', fontWeight: 'bold', color: () => `rgb(${Math.round(Math.random()*160)}, ${Math.round(Math.random()*160)}, ${Math.round(Math.random()*160)})` },
+                                    data: [
+                                        {name: '西华闸机', value: 30}, {name: '移动考核', value: 25}, {name: '家长投诉', value: 20},
+                                        {name: '作业帮', value: 18}, {name: '资料太薄', value: 15}, {name: '寒假作业', value: 40},
+                                        {name: '资源类', value: 22}, {name: '新密书记', value: 10}
+                                    ]
+                                }]
+                            });
+                        }
+                        
+                        // Trend Chart (New)
+                        const chartTrend = document.getElementById('chart-trend');
+                        if (chartTrend) {
+                            const myChart2 = echarts.init(chartTrend);
+                            myChart2.setOption({
+                                tooltip: { trigger: 'axis' },
+                                grid: { top: '10%', left: '3%', right: '4%', bottom: '3%', containLabel: true },
+                                xAxis: { type: 'category', boundaryGap: false, data: MOCK_TREND.dates },
+                                yAxis: { type: 'value' },
+                                series: [
+                                    { name: '风险', type: 'line', stack: 'Total', smooth: true, itemStyle: {color: '#ef4444'}, areaStyle: {opacity: 0.1}, data: MOCK_TREND.risks },
+                                    { name: '商机', type: 'line', stack: 'Total', smooth: true, itemStyle: {color: '#10b981'}, areaStyle: {opacity: 0.1}, data: MOCK_TREND.opps }
+                                ]
+                            });
+                        }
+                    });
+                };
+
+                watch(currentView, (val) => { if (val === 'dashboard') initCharts(); });
+                onMounted(initCharts);
+
+                return {
+                    currentView, tabs, intelTab, intelCategories, filters, selectedLog, yesterdayDate,
+                    logs, kpi, intelCounts, summarySentence, filteredLogs, filteredIntelItems, uniqueRegions, regionsStats, topRiskRegion,
+                    formatKey, hasTag, getDigest, openDetail, jumpToIntelligence, openRegionDetail, changeView,
+                    getCategoryStyle, getDimensionColor, getDimensionTextColor, cleanAnalysis, categoryDims
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

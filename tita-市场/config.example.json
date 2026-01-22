@@ -1,0 +1,39 @@
+{
+    "tita_api_url": "https://work-weixin.tita.com/api/v1/569403/500866233/summary/search",
+    "headers": {
+        "accept": "application/json, text/plain, */*",
+        "content-type": "application/json",
+        "cookie": "填写你的Tita Cookie",
+        "Referer": "https://work-weixin.tita.com/500866233/weixin/pc/home",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    },
+    "volcengine_api_key": "填写你的火山引擎API密钥",
+    "volcengine_endpoint_id": "填写你的模型Endpoint ID",
+    "target_departments": [
+        "填写部门ID"
+    ],
+    "analysis_categories": [
+        "学校画像信息（规模/关键人/信息化水平/预算）",
+        "合作伙伴协同状态（移动公司）",
+        "竞争动态与替代风险",
+        "销售流程阻碍点",
+        "客户关系深度（决策链）",
+        "场景化需求与痛点",
+        "新业务与新模式反馈",
+        "系统性与运营类问题",
+        "用户投诉",
+        "业务发展进展"
+    ],
+    "keepalive": {
+        "enabled": true,
+        "start_hour": 8,
+        "end_hour": 18,
+        "daily_attempts": 3
+    },
+    "feishu": {
+        "app_id": "填写飞书应用ID",
+        "app_secret": "填写飞书应用密钥",
+        "app_token": "填写飞书多维表格Token",
+        "table_id": "填写表格ID"
+    }
+}

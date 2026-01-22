@@ -1,62 +1,41 @@
-# 自动周报生成器 (Weekly Report Automation)
+# Tita 工具集
 
-本项目用于自动抓取 Tita 平台的日报（本周一至周六），并使用火山引擎 AI 大模型汇总生成结构化的周报。
+Tita 平台日志相关工具，包括自动爬取日志同步到飞书、自动完成周报等。
 
-## 📁 目录结构
+## 📂 项目结构
 
-*   `weekly_report_generator.py`: 核心脚本（Python 版）。
-*   `weekly_report_generator.ps1`: 核心脚本（PowerShell 版，无需 Python）。
-*   `run_report.bat`: 启动脚本（运行 Python 版）。
-*   `run_report_powershell.bat`: 启动脚本（运行 PowerShell 版）。
-*   `config.json`: 配置文件，包含 API 地址、密钥、Cookie 等。
-*   `提示词.md`: AI 生成周报时使用的指令（Prompt）。
-*   `周报/`: 存放生成的周报文件。
+```
+tita/
+├── tita-市场/           # 日报分析系统 - AI智能分析销售日报
+└── (根目录)             # 自动周报生成器
+```
 
-## 🚀 快速开始
+## 🚀 项目说明
 
-1.  **启动**: 双击 **`run_report_powershell.bat`**（推荐）或 **`run_report.bat`**。
-2.  **等待**: 脚本会自动验证 Cookie、抓取数据、调用 AI，过程大约 10-30 秒。
-3.  **结果**: 完成后，周报会保存在 `周报` 文件夹下，文件名为 `周报_YYYYMMDD.md`。
+### [tita-市场](./tita-市场/)
+基于 AI 大模型的销售日报智能分析工具，功能包括：
+- 自动从 Tita 平台爬取日报
+- AI 分析提取结构化事件
+- 生成可视化仪表板
+- 同步到飞书多维表格
 
-## 🔄 Cookie 共享功能 (新增)
+### 自动周报生成器 (根目录)
+自动抓取本周日报并使用 AI 生成周报，功能包括：
+- 自动获取本周一至周六的日报
+- 调用 AI 大模型汇总生成周报
+- Cookie 过期自动检测和引导更新
 
-本项目与 `tita-市场` 项目共享 Cookie，**无需单独维护**！
+## ⚙️ 配置说明
 
-- **共享文件**: `f:\共享配置\tita_cookie.json`
-- **刷新责任**: 由 `tita-市场` 项目负责刷新和保活
-- **本项目**: 运行时自动从共享文件读取最新 Cookie
+每个项目都有 `config.example.json` 配置模板，使用前需要：
+1. 复制 `config.example.json` 为 `config.json`
+2. 填写你的 API 密钥和 Cookie
 
-> 💡 只需在 `tita-市场` 刷新一次 Cookie，两个项目就都能用了！
+> ⚠️ `config.json` 已被 .gitignore 排除，不会上传到 GitHub
 
-## 🔄 Cookie 手动更新 (备用)
+## 🔗 分支说明
 
-如果共享 Cookie 失效，脚本会自动检测并提示手动更新：
-
-## ⚙️ 配置说明 (config.json)
-
-所有关键参数都在 `config.json` 中：
-
-| 字段 | 说明 |
+| 分支 | 用途 |
 |------|------|
-| `tita_api_url` | Tita 日报 API 地址 |
-| `ai_api_url` | 火山引擎 AI API 地址 |
-| `ai_model_id` | AI 模型 ID |
-| `ai_api_key` | AI API 密钥 |
-| `headers.cookie` | Tita 登录凭证（自动更新） |
-| `output_dir` | 周报保存目录 |
-
-## 📝 修改周报格式 (提示词.md)
-
-如果您希望周报的风格更正式、或包含特定板块：
-1.  打开 `提示词.md`。
-2.  直接修改其中的文本内容。
-3.  **注意**: 请保留关于"输出格式"的指令，以免 AI 输出混乱的格式。
-
-## 🛠️ 常见问题
-
-| 问题 | 解决方案 |
-|------|----------|
-| Cookie 过期 | 按脚本提示更新即可，无需手动编辑文件 |
-| PowerShell 乱码报错 | 确保 `.ps1` 文件为 **UTF-8 with BOM** 编码 |
-| 找不到 requests 模块 | 运行 `pip install requests` |
-| 未找到日报记录 | 检查是否已写当周日报 |
+| `master` | 共享Cookie版本（适合同时使用两个工具） |
+| `standalone` | 独立版本（适合分享给他人） |
