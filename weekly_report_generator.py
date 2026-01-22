@@ -9,23 +9,6 @@ from datetime import timedelta
 
 # 配置文件路径
 CONFIG_PATH = "config.json"
-SHARED_COOKIE_FILE = r'f:\共享配置\tita_cookie.json'  # 共享Cookie文件
-
-def load_shared_cookie():
-    """从共享文件加载Cookie"""
-    try:
-        import os
-        if os.path.exists(SHARED_COOKIE_FILE):
-            with open(SHARED_COOKIE_FILE, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                cookie = data.get('cookie', '')
-                if cookie:
-                    updated_at = data.get('updated_at', '未知')
-                    print(f"(信息) 使用共享Cookie (更新于: {updated_at})")
-                    return cookie
-    except Exception as e:
-        print(f"(WARNING) 读取共享Cookie失败: {e}")
-    return None
 
 # 加载配置
 def load_config():
@@ -34,14 +17,7 @@ def load_config():
         return None
     try:
         with open(CONFIG_PATH, "r", encoding="utf-8-sig") as f:
-            config = json.load(f)
-        
-        # 优先从共享文件加载Cookie
-        shared_cookie = load_shared_cookie()
-        if shared_cookie:
-            config['headers']['cookie'] = shared_cookie
-        
-        return config
+            return json.load(f)
     except Exception as e:
         print(f"(ERROR) 读取配置文件失败 - {e}")
         return None
